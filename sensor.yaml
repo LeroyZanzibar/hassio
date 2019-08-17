@@ -1,0 +1,48 @@
+# Weather prediction
+- platform: yr
+
+- platform: darksky
+  api_key: !secret dark_sky_api
+  forecast:
+  - 0
+  - 1
+  - 2
+  monitored_conditions:
+  - summary
+  - icon
+  - temperature
+  - humidity
+  - pressure
+  - ozone
+
+# Ring doorbell information
+- platform: ring
+
+###############################################################################################
+
+#Aeotec meter sensors for monitoring oven and clothes dryer
+- platform: template
+  sensors:
+    oven_status:
+      friendly_name: "Oven Status"
+      value_template: >
+        {% if states.sensor.aeon_labs_zw095_home_energy_meter_gen5_current.attributes.power_consumption > 0  %}on{% else %}off{% endif %}
+
+#- platform: template
+#  sensors:
+#    clothes_dryer_status:
+#      friendly_name: "Clothes Dryer Status"
+#      value_template: >
+#        {% if states.sensor.aeon_labs_zw095_home_energy_meter_gen5_current_2.attributes.power_consumption > 0  %}on{% else %}off{% endif %}
+
+###############################################################################################
+# Sensors for Telegram calendar notifications
+- platform: template
+  sensors:
+    bins_out_offset:
+      friendly_name: "Bins out offset"
+      value_template: >
+        {% if as_timestamp(states.calendar.recycling_pickup.attributes.start_time) - as_timestamp(strptime(states.sensor.date_time.state, "%Y-%m-%d, %H:%M" ) ) < 23400 and as_timestamp(states.calendar.recycling_pickup.attributes.end_time) > as_timestamp(strptime(states.sensor.date_time.state, "%Y-%m-%d, %H:%M" ) ) %}on{% else %}off{% endif %}
+- platform: time_date
+  display_options:
+    - 'date_time'

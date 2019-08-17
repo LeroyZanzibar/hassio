@@ -1,0 +1,746 @@
+###############################################################################################
+#Telegram
+
+- id: telegramremoveinline
+  alias: Telegram callback to remove keyboard
+  trigger:
+    platform: event
+    event_type: telegram_callback
+    event_data:
+      data: /removekeyboard
+  action:
+  - service: telegram_bot.answer_callback_query
+    data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+  - service: telegram_bot.edit_replymarkup
+    data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.user_id }}'
+      inline_keyboard: []
+- id: telegramfrontdoorleftunlocked
+  alias: Telegram bot - Front door left unlocked
+  trigger:
+  - platform: time
+    at: '21:30:00'
+  condition:
+  - condition: state
+    entity_id: lock.schlage_be468_touchscreen_deadbolt_locked
+    state: unlocked
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - Yes:/lockdoor, No:/removekeyboard
+      message: It's late and the door is still unlocked. Do you want to lock it?
+- id: telegramlockdoor
+  alias: Telegram callback to lock the front door
+  trigger:
+  - event_data:
+      data: /lockdoor
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - lock.schlage_be468_touchscreen_deadbolt_locked
+    service: lock.lock
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Locking the door now.
+    service: telegram_bot.edit_message
+- id: telegramfrontdoorunlockednotification
+  alias: Telegram bot - Front door unlocked notification
+  trigger:
+  - entity_id: lock.schlage_be468_touchscreen_deadbolt_locked
+    from: locked
+    platform: state
+    to: unlocked
+  condition:
+  - condition: state
+    entity_id: group.Family
+    state: not_home
+  action:
+  - data:
+      message: The front door was just unlocked. Are you expecting company?
+    service: telegram_bot.send_message
+- id: telegramgarageleftopen
+  alias: Telegram bot - Garage left open
+  trigger:
+  - entity_id: group.family
+    from: home
+    platform: state
+    to: not_home
+  condition:
+  - condition: state
+    entity_id: cover.garage
+    state: open
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - Yes:/closegarage, No:/removekeyboard
+      message: It looks like everyone left but the garage is still open. Do you want
+        to close it?
+- id: telegramopengarage
+  alias: Telegram callback to open the garage
+  trigger:
+  - event_data:
+      data: /opengarage
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - cover.garage
+    service: cover.open_cover
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Opening garage now.
+    service: telegram_bot.edit_message
+- id: telegramclosegarage
+  alias: Telegram callback to close the garage
+  trigger:
+  - event_data:
+      data: /closegarage
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - cover.garage
+    service: cover.close_cover
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Closing garage now.
+    service: telegram_bot.edit_message
+- id: telegramgaragecontrol
+  alias: Telegram - Garage Control
+  trigger:
+  - event_data:
+      command: /garage
+    event_type: telegram_command
+    platform: event
+  condition: []
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - Open:/opengarage, Close:/closegarage
+      message: What do you want to do?
+- id: telegrambinsout
+  alias: Telegram bot to remind to put bins out
+  trigger:
+  - entity_id: sensor.bins_out_offset
+    from: 'off'
+    platform: state
+    to: 'on'
+  condition: []
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      message: Make sure to put the recycling bin out.
+      inline_keyboard:
+      - 30 Minutes:/30m, 1 Hour:/1h, 3 Hours:/3h
+      - No reminder:/removekeyboard
+- id: telegramrepeat30m
+  alias: Telegram callback to repeat message in 30 minutes
+  hide_entity: true
+  trigger:
+    platform: event
+    event_type: telegram_callback
+    event_data:
+      data: /30m
+  action:
+  - service: telegram_bot.answer_callback_query
+    data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK, reminding you in 30 minutes
+  - service: telegram_bot.edit_replymarkup
+    data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.user_id }}'
+      inline_keyboard: []
+  - delay: 00:30:00
+  - service: telegram_bot.send_message
+    data_template:
+      message: '{{ trigger.event.data.message.text }}'
+      data:
+        inline_keyboard:
+        - 30 Minutes:/30m, 1 Hour:/1h, 3 Hours:/3h
+        - No reminder:/removekeyboard
+- id: telegramrepeat1h
+  alias: Telegram callback to repeat message in 1 hour
+  hide_entity: true
+  trigger:
+    platform: event
+    event_type: telegram_callback
+    event_data:
+      data: /1h
+  action:
+  - service: telegram_bot.answer_callback_query
+    data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK, reminding you in 1 hour
+  - service: telegram_bot.edit_replymarkup
+    data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.user_id }}'
+      inline_keyboard: []
+  - delay: 01:00:00
+  - service: telegram_bot.send_message
+    data_template:
+      message: '{{ trigger.event.data.message.text }}'
+      data:
+        inline_keyboard:
+        - 30 Minutes:/30m, 1 Hour:/1h, 3 Hours:/3h
+        - No reminder:/removekeyboard
+- id: telegramrepeat3h
+  alias: Telegram callback to repeat message in 3 hours
+  hide_entity: true
+  trigger:
+    platform: event
+    event_type: telegram_callback
+    event_data:
+      data: /3h
+  action:
+  - service: telegram_bot.answer_callback_query
+    data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK, reminding you in 3 hours
+  - service: telegram_bot.edit_replymarkup
+    data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.user_id }}'
+      inline_keyboard: []
+  - delay: 03:00:00
+  - service: telegram_bot.send_message
+    data_template:
+      message: '{{ trigger.event.data.message.text }}'
+      data:
+        inline_keyboard:
+        - 30 Minutes:/30m, 1 Hour:/1h, 3 Hours:/3h
+        - No reminder:/removekeyboard
+- id: telegramringdoorbellmotion
+  alias: Telegram bot - Ring doorbell motion
+  trigger:
+  - entity_id: binary_sensor.ring_front_door_motion
+    from: 'off'
+    platform: state
+    to: 'on'
+  condition:
+  - condition: state
+    entity_id: group.Family
+    state: not_home
+  action:
+  - data:
+      message: There's motion outside of the front door.
+    service: telegram_bot.send_message
+- id: telegramringdoorbellding
+  alias: Telegram bot - Ring doorbell ding
+  trigger:
+  - entity_id: binary_sensor.ring_front_door_ding
+    from: 'off'
+    platform: state
+    to: 'on'
+  action:
+  - data:
+      message: The front door is ringing. Better go check it out.
+    service: telegram_bot.send_message
+- id: telegramlightcontrol
+  alias: Telegram - Light Control
+  trigger:
+  - event_data:
+      command: /lights
+    event_type: telegram_command
+    platform: event
+  condition: []
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - All lights on:/alllightson, All lights off:/alllightsoff
+      - Living room on:/lampon, Living room off:/lampoff
+      - Bedroom on:/bedroomon, Bedroom off:/bedroomoff
+      - Atlas on:/atlason, Atlas off:/atlasoff
+      - Bookshelf on:/bookshelfon, Bookshelf off:/bookshelfoff
+      message: Sure. Which lights do you want me to adjust?
+- id: telegramyesturnonalllights
+  alias: Telegram callback to turn on all lights
+  trigger:
+  - event_data:
+      data: /alllightson
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - group.all_lights
+    service: light.turn_on
+  - data:
+      entity_id:
+      - switch.lamp
+    service: switch.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: All lights turn on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnoffalllights
+  alias: Telegram callback to turn off all lights
+  trigger:
+  - event_data:
+      data: /alllightsoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - group.all_lights
+    service: light.turn_off
+  - data:
+      entity_id:
+      - switch.lamp
+    service: switch.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: All lights turned off.
+    service: telegram_bot.edit_message
+- id: telegramyesturnonlivingroomlamp
+  alias: Telegram callback to turn on living room lamp
+  trigger:
+  - event_data:
+      data: /lampon
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.living_room
+    service: light.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Living room lamp turned on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnofflivingroomlamp
+  alias: Telegram callback to turn off living room lamp
+  trigger:
+  - event_data:
+      data: /lampoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: As you wish
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.living_room
+    service: light.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Living room lamp turned off.
+    service: telegram_bot.edit_message
+- id: telegramyesturnonatlaslamp
+  alias: Telegram callback to turn on Atlas lamp
+  trigger:
+  - event_data:
+      data: /atlason
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.atlas_lamp
+    service: light.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Atlas lamp turned on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnoffatlaslamp
+  alias: Telegram callback to turn off Atlas lamp
+  trigger:
+  - event_data:
+      data: /atlasoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: As you wish
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.atlas_lamp
+    service: light.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Atlas lamp turned off.
+    service: telegram_bot.edit_message
+- id: telegramyesturnonmasterbedroomlamps
+  alias: Telegram callback to turn on master bedroom lamps
+  trigger:
+  - event_data:
+      data: /bedroomon
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.bedroom
+    service: light.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Master bedroom lights turned on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnoffmasterbedroomlamps
+  alias: Telegram callback to turn off master bedroom lamps
+  trigger:
+  - event_data:
+      data: /bedroomoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - light.bedroom
+    service: light.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Master bedroom lights turned off.
+    service: telegram_bot.edit_message
+- id: telegramyesturnonbookshelf
+  alias: Telegram callback to turn on bookshelf lights
+  trigger:
+  - event_data:
+      data: /bookshelfon
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - switch.bookshelf
+    service: switch.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Bookshelf light turned on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnoffbookshelf
+  alias: Telegram callback to turn off bookshelf lights
+  trigger:
+  - event_data:
+      data: /bookshelfoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - switch.bookshelf
+    service: switch.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: Bookshelf light turned off.
+    service: telegram_bot.edit_message
+- id: telegrammediacontrol
+  alias: Telegram - Media Control
+  trigger:
+  - event_data:
+      command: /media
+    event_type: telegram_command
+    platform: event
+  condition: []
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - TV on:/tvon, TV off:/tvoff
+      message: How can I help?
+- id: telegramyesturnontv
+  alias: Telegram callback to turn on tv
+  trigger:
+  - event_data:
+      data: /tvon
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id: remote.harmony_hub
+    service: remote.turn_on
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: TV turned on.
+    service: telegram_bot.edit_message
+- id: telegramyesturnofftv
+  alias: Telegram callback to turn off tv
+  trigger:
+  - event_data:
+      data: /tvoff
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id: remote.harmony_hub
+    service: remote.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+      message: TV turned off.
+    service: telegram_bot.edit_message
+- id: telegramawayelectronics
+  alias: Telegram bot - no one home, electronics on
+  trigger:
+  - entity_id: group.family
+    from: home
+    platform: state
+    to: not_home
+  condition:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: group.all_lights
+      state: 'on'
+    - condition: state
+      entity_id: remote.harmony_hub
+      state: 'on'
+    - condition: state
+      entity_id: switch.lamp
+      state: 'on'
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - Yes:/yesturnoffelectronics, No:/removekeyboard
+      message: No one's home, but device(s) have been left on. Do you want to turn
+        them off?
+- id: telegramyesturnoffelectronics
+  alias: Telegram callback to turn off electronics
+  trigger:
+  - event_data:
+      data: /yesturnoffelectronics
+    event_type: telegram_callback
+    platform: event
+  action:
+  - data_template:
+      callback_query_id: '{{ trigger.event.data.id }}'
+      message: OK
+    service: telegram_bot.answer_callback_query
+  - data:
+      entity_id:
+      - group.all_lights
+    service: light.turn_off
+  - data:
+      entity_id: remote.harmony_hub
+    service: remote.turn_off
+  - data:
+      entity_id:
+      - switch.lamp
+    service: switch.turn_off
+  - data_template:
+      message_id: '{{ trigger.event.data.message.message_id }}'
+      chat_id: '{{ trigger.event.data.chat_id }}'
+      inline_keyboard: []
+    service: telegram_bot.delete_message
+- id: telegramstatusinquiry
+  alias: Telegram - Status inquiry
+  trigger:
+  - event_data:
+      command: /status
+    event_type: telegram_command
+    platform: event
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      message: |
+        {%- set andy = states.person.andy -%}
+        {%- set amber = states.person.amber -%}
+        {%- set lock = states.lock.schlage_be468_touchscreen_deadbolt_locked -%}
+        {%- set thermostat = states.sensor.thermostat_temperature -%}
+        {%- set garage = states.cover.garage -%}
+        {%- set oven = states.sensor.oven_status -%}
+        {{ andy.name }}: {{ andy.state }}
+        {{ amber.name }}: {{ amber.state }}
+        {{ lock.name }}: {{ lock.state }}
+        {{ thermostat.name }}: {{ thermostat.state }}
+        {{ garage.name }}: {{ garage.state }}
+        {{ oven.name }}: {{ oven.state }}
+- id: telegramlightfordogs
+  alias: Telegram bot - Turn on light for dogs
+  trigger:
+  - platform: sun
+    event: sunset
+  condition:
+  - condition: state
+    entity_id: group.all_lights
+    state: 'off'
+  action:
+  - service: telegram_bot.send_message
+    data_template:
+      inline_keyboard:
+      - Yes:/lampon, No:/removekeyboard
+      message: It's getting dark. Do you want to turn a light on for the dogs?
+- id: telegramovenleftopen
+  alias: Telegram bot - Oven left on
+  trigger:
+  - entity_id: group.family
+    from: home
+    platform: state
+    to: not_home
+  condition:
+  - condition: state
+    entity_id: sensor.oven_status
+    state: 'on'
+  action:
+  - service: telegram_bot.send_message
+    data:
+      message: It looks like you left the oven on.
+
+###############################################################################################
+#General
+
+- id: entergarageafterdark
+  alias: Enter through garage after dark
+  trigger:
+  - entity_id: cover.garage
+    from: closed
+    platform: state
+    to: open
+  condition:
+  - condition: state
+    entity_id: group.all_lights
+    state: 'off'
+  - condition: sun
+    after: sunset
+  action:
+  - data:
+      entity_id:
+      - light.lamp
+    service: light.turn_on
+
+###############################################################################################
+#Christmas
+
+- id: christmasoutdoorlightsonmorning
+  alias: Christmas - Outdoor Lights On Morning
+  trigger:
+  - at: 06:15:00
+    platform: time
+  condition: []
+  action:
+  - data:
+      entity_id:
+      - group.christmas
+    service: switch.turn_on
+- id: christmasoutdoorlightsoffmorning
+  alias: Christmas - Outdoor Lights Off Morning
+  trigger:
+  - at: 08:30:00
+    platform: time
+  condition: []
+  action:
+  - data:
+      entity_id:
+      - group.christmas
+    service: switch.turn_off
+- id: christmasoutdoorlightsonevening
+  alias: Christmas - Outdoor Lights On Evening
+  trigger:
+  - at: '17:15:00'
+    platform: time
+  condition: []
+  action:
+  - data:
+      entity_id:
+      - group.christmas
+    service: switch.turn_on
+- id: christmasoutdoorlightsoffevening
+  alias: Christmas - Outdoor Lights Off Evening
+  trigger:
+  - at: '22:30:00'
+    platform: time
+  condition: []
+  action:
+  - data:
+      entity_id:
+      - group.christmas
+    service: switch.turn_off

@@ -1,0 +1,9 @@
+Kitchen:
+  entities:
+    - light.ge_12724_3_way_dimmer_switch_level
+    - light.kitchen_2_level
+
+Family:
+  entities:
+    - person.amber
+    - person.andy
